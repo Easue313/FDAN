@@ -10,9 +10,7 @@ import itertools
 from datetime import datetime
 from some_tools import save_training_curves, _logger, rec_show, mmd_loss
 from sklearn.metrics import confusion_matrix, accuracy_score
-from SDUST_data import (ReadSDUST_S1000_N0, ReadSDUST_S1000_N20, ReadSDUST_S1000_N40, ReadSDUST_S1000_N60, ReadSDUST_S1500_N20,
-                        ReadSDUST_S1800_N20, ReadSDUST_S2000_N20, ReadSDUST_S1500_N60, ReadSDUST_S2500_N60, ReadSDUST_S3000_N60,
-                        ReadSDUST_S1500_N0, ReadSDUST_S1800_N0, ReadSDUST_S2000_N0, ReadSDUST_S2500_N0, ReadSDUST_S3000_N0,
+from SDUST_data import (ReadSDUST_S1000_N0, ReadSDUST_S1500_N0, ReadSDUST_S1800_N0, ReadSDUST_S2000_N0, ReadSDUST_S2500_N0, ReadSDUST_S3000_N0,
                         ReadSDUST_S1500_2500_N0, ReadSDUST_S1000_2000_N0, ReadSDUST_S800_1500_N0)
 from config_arg import load_args
 import matplotlib.pyplot as plt
