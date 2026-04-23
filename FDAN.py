@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import pandas as pd
 import os
 import numpy as np
-from model_cnn import Encoder, Classifier, Decoder
+from model import Encoder, Classifier, Decoder
 import itertools
 from some_tools import  _logger, mmd_loss
 from sklearn.metrics import confusion_matrix, accuracy_score
