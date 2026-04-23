@@ -51,6 +51,9 @@ python FDAN.py
 ## 📁 Project Structure
 
 FDAN
+├── utils
+
+├── config_arg.py 
 
 ├── Data1.mat 
 
@@ -62,8 +65,8 @@ FDAN
 
 ├── Read_data.py
 
-├── config_arg.py 
+├── some_tools.py 
 
 ├── model.py 
 
-  └── FDAN.py 
+└── FDAN.py 
