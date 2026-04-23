@@ -31,10 +31,12 @@ Please open the `Read_data.py` file in the project, locate the `Readdata` class,
 
 ```python
 # Read_data.py
-class Readdata:
-    def __init__(self):
-        # Add or modify your local file paths here
-        self.data_path = "/your/local/path/to/dataset/"
+class ReadData:
+    def __init__(self, args):
+        ...
+    def read_data_file(self):
+        ...
+            file_data = hdf5storage.loadmat(os.path.join(r"your/local/path/to/dataset/", key))
         ...
 ```
 
@@ -58,7 +60,7 @@ FDAN
 
 ├── Data4.mat
 
-├── Read_data.py Read
+├── Read_data.py
 
 ├── config_arg.py 
 
