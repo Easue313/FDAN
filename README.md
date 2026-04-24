@@ -40,7 +40,10 @@ class ReadData:
         ...
 ```
 
-### 2. Running the Model
+### 2. Configuration
+All parameters that need to be adjusted are located in the `config_arg.py` file. You can modify the hyperparameters, training settings, and model configurations there before running the code.
+
+### 3. Running the Model
 
 Once the data paths are successfully configured, you can start the project by running `FDAN.py` as the main script:
 
