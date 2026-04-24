@@ -22,10 +22,10 @@ class Encoder(nn.Module):
         return f_map, f_vec
 
 class Classifier(nn.Module):
-    def __init__(self):
+    def __init__(self, num_classes=3):
         super().__init__()
-        self.linear1 = nn.Linear(in_features=576, out_features=100)   #1600   fft576
-        self.linear2 = nn.Linear(in_features=100, out_features=3)
+        self.linear1 = nn.Linear(in_features=576, out_features=100)  
+        self.linear2 = nn.Linear(in_features=100, out_features=num_classes)
     def forward(self, x):
         x1 = self.linear1(x)
         x2 = self.linear2(x1)
@@ -46,16 +46,12 @@ class Decoder(nn.Module):
                                    pad_type='reflect', padding=695)
         self.deconv7 = Conv1dBlock(in_chan=32, out_chan=1, kernel_size=127, stride=1, activation='sigmoid', norm='BN',
                                  pad_type='reflect', padding=63)
-
     def forward(self, f_map):
         x1 = self.deconv1(self.up1(f_map))
         x2 = self.deconv2(self.up2(x1))
         x3 = self.deconv3(self.up3(x2))
         x_rec =  self.deconv7(x3)
         return x_rec
-
-
-
 
 class Conv1dBlock(nn.Module):
     def __init__(self, in_chan, out_chan, kernel_size, stride, activation='lrelu', norm='LN', pad_type='reflect',
@@ -106,7 +102,6 @@ class Conv1dBlock(nn.Module):
         if self.activation:
             x = self.activation(x)
         return x
-
 
 class LayerNorm(nn.Module):
     def __init__(self, num_features, eps=1e-5, affine=True):
