@@ -6,6 +6,7 @@ import os
 import numpy as np
 from model import Encoder, Classifier, Decoder
 import itertools
+import logging
 from sklearn.metrics import confusion_matrix, accuracy_score
 from Read_data import (ReadData1, ReadData2, ReadData3, ReadData4)
 from config_arg import load_args
