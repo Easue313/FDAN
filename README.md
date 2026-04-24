@@ -33,11 +33,11 @@ class ReadData:
     def __init__(self, args):
         ...
     def read_data_file(self):
-        #1. Map specific file names to their corresponding fault labels
+        # 1. Map specific file names to their corresponding fault labels
         labels = {'NC Data': 0, 'IF Data': 1, 'OF Data': 2}
         # Note: 'NC Data', 'IF Data', and 'OF Data' represent the actual file names for each fault category.
         ...
-        #2. Set your local dataset path here
+        # 2. Set your local dataset path here
         file_data = hdf5storage.loadmat(os.path.join(r"your/local/path/to/dataset/", key))
         ...
 ```
