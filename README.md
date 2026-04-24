@@ -25,9 +25,7 @@ conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit
 
 ### 1. Data Preparation
 
-Before running the model, you need to configure the paths to read your local dataset.
-
-Please open the `Read_data.py` file in the project, locate the `Readdata` class, and add your file paths there. Here is an example:
+Before running the model, you need to configure the dataset file names and paths in `Read_data.py`. Open the file, locate the `ReadData` class, and update the `read_data_file` method:
 
 ```python
 # Read_data.py
@@ -35,8 +33,12 @@ class ReadData:
     def __init__(self, args):
         ...
     def read_data_file(self):
+        #1. Map specific file names to their corresponding fault labels
+        labels = {'NC Data': 0, 'IF Data': 1, 'OF Data': 2}
+        # Note: 'NC Data', 'IF Data', and 'OF Data' represent the actual file names for each fault category.
         ...
-            file_data = hdf5storage.loadmat(os.path.join(r"your/local/path/to/dataset/", key))
+        #2. Set your local dataset path here
+        file_data = hdf5storage.loadmat(os.path.join(r"your/local/path/to/dataset/", key))
         ...
 ```
 
