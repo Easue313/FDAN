@@ -12,11 +12,10 @@ from Read_data import (ReadData1, ReadData2, ReadData3, ReadData4)
 from config_arg import load_args
 torch.autograd.set_detect_anomaly(True)
 
-
 def balanced_minibatch_generator(train_loaders_src, train_iters_src):
     num_sources = len(train_loaders_src)
     if num_sources == 0:
-        raise ValueError("没有源域数据！")
+        raise ValueError("No source data！")
     base_bs = args.batch_size // num_sources
     remainder = args.batch_size % num_sources
     while True:
@@ -77,7 +76,6 @@ class SparseAttention(nn.Module):
         self.num_features = num_features
         self.proj = nn.Linear(num_features, num_features)
         self.temperature = nn.Parameter(torch.tensor(temperature_init))
-        
     def forward(self, x):
         B, C, L = x.shape
         assert C * L == self.num_features
@@ -92,24 +90,23 @@ class SparseAttention(nn.Module):
         attn_map = attn_flat.reshape(B, C, L)
         return attn_map
 
-
 def hsic_loss(z_c, z_d, sigma=1.0):
-    B = z_c.size(0)
-    z_c = z_c.view(B, -1)
-    z_d = z_d.view(B, -1)
     def gaussian_kernel(x, y, sigma):
         xx = x.pow(2).sum(1, keepdim=True)
         yy = y.pow(2).sum(1, keepdim=True)
         xy = torch.mm(x, y.t())
         dist = xx + yy.t() - 2 * xy
         return torch.exp(-dist / (2 * sigma ** 2))
+    B = z_c.size(0)
+    z_c = z_c.view(B, -1)
+    z_d = z_d.view(B, -1)
     K_c = gaussian_kernel(z_c, z_c, sigma)
     K_d = gaussian_kernel(z_d, z_d, sigma)
     H = torch.eye(B, device=z_c.device) - 1.0 / B * torch.ones(B, B, device=z_c.device)
     hsic = torch.trace(torch.mm(K_c, H @ K_d @ H)) / ((B - 1) ** 2)
     return hsic
 
-class CFAN(nn.Module):
+class FDAN(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
@@ -133,6 +130,36 @@ class CFAN(nn.Module):
             lr=args.lr1
         )
         self.current_epoch = 0
+    
+    def get_attention_map(self, fmap_c):
+        return self.attention(fmap_c)
+    
+    def transport_augmentation(self, z_c_batch, fmap_c_batch, labels):
+        with torch.no_grad():
+            attn_map = self.get_attention_map(fmap_c_batch)  # (B, 32, 18)
+            B, C, L = fmap_c_batch.shape
+            device = fmap_c_batch.device
+            z_c_reshaped = fmap_c_batch
+            aug1_list = []
+            aug2_list = []
+            for i in range(B):
+                y_i = labels[i]
+                peer_mask = (labels == y_i) & (torch.arange(B, device=device) != i)
+                peers = z_c_reshaped[peer_mask]
+                if peers.size(0) == 0:
+                    peer_mean = z_c_reshaped[i]
+                else:
+                    peer_mean = peers.mean(dim=0)
+                a = attn_map[i]  
+                z_aug1 = a * z_c_reshaped[i] + (1 - a) * peer_mean
+                z_aug2 = a * z_c_reshaped[i] + (1 - a) * (2 * z_c_reshaped[i] - peer_mean)
+                aug1_list.append(z_aug1)
+                aug2_list.append(z_aug2)
+            z_aug1_all = torch.stack(aug1_list, dim=0) 
+            z_aug2_all = torch.stack(aug2_list, dim=0) 
+            z_aug_all = torch.cat([z_aug1_all, z_aug2_all], dim=0) 
+            z_aug_flat_all = z_aug_all.flatten(start_dim=1)  
+            return z_aug_flat_all, z_aug1_all, z_aug2_all 
 
     def forward(self, x):
         fmap_c, z_c = self.encoder_causal(x)
@@ -164,8 +191,8 @@ class CFAN(nn.Module):
 
     def model_train(self, minibatch_iterator, test_loaders, logger):
         self.to(self.args.device)
-        print("=== 开始训练 ===")
-        print(f"总 epochs: {self.args.epochs}")
+        print("=== Begin Training ===")
+        print(f"Total epochs: {self.args.epochs}")
         metrics = {
             'total_loss': [], 'cls_loss': [], 'mmd_loss': [], 'ind_loss': [], 'rec_loss': [], 'aug_loss': [], 'att_loss': [],
             'src_acc': [], 'tar_acc': []
@@ -218,7 +245,7 @@ class CFAN(nn.Module):
                                self.args.w_mmd * mmd_loss_total)
             aug_loss = torch.tensor(0.0, device=self.args.device)
             att_loss = torch.tensor(0.0, device=self.args.device)
-            if epoch >= self.args.warmup_epochs:
+            if epoch >= self.args.att_start_epoch:
                 self.optimizer_att.zero_grad()
                 attn_map = self.attention(fmap_c.detach())
                 attended_feat = attn_map * fmap_c.detach()
@@ -242,39 +269,27 @@ class CFAN(nn.Module):
             self.optimizer_main.zero_grad()
             total_main_loss.backward()
             self.optimizer_main.step()
-            epoch_losses['cls'].append(to_scalar(cls_loss))
-            epoch_losses['mmd'].append(to_scalar(mmd_loss_total))
-            epoch_losses['ind'].append(to_scalar(ind_loss))
-            epoch_losses['rec'].append(to_scalar(rec_loss))
-            epoch_losses['aug'].append(to_scalar(aug_loss))
-            epoch_losses['att'].append(to_scalar(att_loss))
-            loss_cls = epoch_losses['cls']
-            loss_mmd = epoch_losses['mmd']
-            loss_ind = epoch_losses['ind']
-            loss_rec = epoch_losses['rec']
-            loss_aug = epoch_losses['aug']
-            loss_att = epoch_losses['att']
             log_str = (f'Epoch {epoch + 1} | '
-                       f'Cls: {loss_cls:.4f} | '
-                       f'MMD: {loss_mmd:.4f} | '
-                       f'Ind: {loss_ind:.4f} | '
-                       f'Rec: {loss_rec:.4f} | '
-                       f'Aug: {loss_aug:.4f} | '
-                       f'Att: {loss_att:.4f}')
+                       f'Cls: {cls_loss:.4f} | '
+                       f'MMD: {mmd_loss_total:.4f} | '
+                       f'Ind: {ind_loss:.4f} | '
+                       f'Rec: {rec_loss:.4f} | '
+                       f'Aug: {aug_loss:.4f} | '
+                       f'Att: {att_loss:.4f}')
             test_acc = self.model_test(test_loaders, logger)
             tar_acc = test_acc[0]
             src_acc_mean = np.mean(test_acc[1:]) if len(test_acc) > 1 else 0.0
             log_str += f' | Tar Acc: {tar_acc:.4f} | Src Mean Acc: {src_acc_mean:.4f}'
             print(log_str)
             logger.info(log_str)
-            total_epoch_loss = loss_cls + self.args.w_mmd * loss_mmd + self.args.w_ind * loss_ind + self.args.w_rec * loss_rec + self.args.w_aug * loss_aug
+            total_epoch_loss = cls_loss + self.args.w_mmd * mmd_loss_total + self.args.w_ind * ind_loss + self.args.w_rec * rec_loss + self.args.w_aug * aug_loss
             metrics['total_loss'].append(total_epoch_loss)
-            metrics['cls_loss'].append(loss_cls)
-            metrics['mmd_loss'].append(loss_mmd)
-            metrics['ind_loss'].append(loss_ind)
-            metrics['rec_loss'].append(loss_rec)
-            metrics['aug_loss'].append(loss_aug)
-            metrics['att_loss'].append(loss_att)
+            metrics['cls_loss'].append(cls_loss)
+            metrics['mmd_loss'].append(mmd_loss_total)
+            metrics['ind_loss'].append(ind_loss)
+            metrics['rec_loss'].append(rec_loss)
+            metrics['aug_loss'].append(aug_loss)
+            metrics['att_loss'].append(att_loss)
             metrics['tar_acc'].append(tar_acc)
             metrics['src_acc'].append(src_acc_mean)
         return best_epoch, best_tar_acc
@@ -293,7 +308,6 @@ class CFAN(nn.Module):
             acc_results.append(acc)
         return acc_results
 
-
 def main_core(args):
     args.save_dir = os.path.join(path_log)
     os.makedirs(args.save_dir, exist_ok=True)
@@ -308,7 +322,7 @@ def main_core(args):
     loaders_tar = [i.read_data_file() for i in datasets_object_tar]
     test_loaders_tar = [test for _, test in loaders_tar]
     train_iters_src = [itertools.cycle(loader) for loader in train_loaders_src]
-    model = CFAN(args)
+    model = FDAN(args)
     minibatch_iterator = balanced_minibatch_generator(train_loaders_src, train_iters_src)
     best_epoch, best_tar_acc = model.model_train(
         minibatch_iterator,
@@ -343,7 +357,6 @@ def main(args):
     results_path = os.path.join(args.save_dir, 'results.xlsx')
     results_df.to_excel(results_path, index=False)
     print(f"Results saved to {results_path}")
-
 
 if __name__ == '__main__':
     args = load_args()
