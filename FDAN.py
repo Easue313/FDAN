@@ -66,19 +66,8 @@ def _logger(file_name='log_files'):
 def mmd_loss(source, target, sigma=1.0, kernel="linear"):
     def linear_kernel(x, y):
         return torch.mm(x, y.t())
-    def gaussian_kernel(x, y, sigma=1.0):
-        x = x.unsqueeze(1)
-        y = y.unsqueeze(0)
-        distance = torch.sum((x - y) ** 2, dim=2)
-        kernel = torch.exp(-distance / (2 * sigma ** 2))
-        return kernel
     def compute_kernel(x, y, kernel="linear", sigma=1.0):
-        if kernel == "linear":
-            return linear_kernel(x, y)
-        elif kernel == "rbf":
-            return gaussian_kernel(x, y, sigma)
-        else:
-            raise ValueError("Unsupported kernel type: {}".format(kernel))
+        return linear_kernel(x, y)
     k_ss = compute_kernel(source, source, kernel, sigma)
     k_tt = compute_kernel(target, target, kernel, sigma)
     k_st = compute_kernel(source, target, kernel, sigma)
