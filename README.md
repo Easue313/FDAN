@@ -61,14 +61,6 @@ FDAN
 
 ├── config_arg.py 
 
-├── Data1.mat 
-
-├── Data2.mat
-
-├── Data3.mat
-
-├── Data4.mat
-
 ├── Read_data.py
 
 ├── some_tools.py 
